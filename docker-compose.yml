@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+  daily-52w-hl-stock:
+    build:
+      context: ./daily-52w-hl-stock
+    image: daily-52w-hl-stock:latest
+    container_name: daily-52w-hl-stock
+    env_file:
+      - ./daily-52w-hl-stock/.env
+    restart: unless-stopped
+
+  daily-market-value:
+    build:
+      context: ./daily-market-value
+    image: daily-market-value:latest
+    container_name: daily-market-value
+    env_file:
+      - ./daily-market-value/.env
+    restart: unless-stopped
