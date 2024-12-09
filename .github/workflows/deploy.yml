@@ -1,0 +1,64 @@
+name: Deploy and Sync Changed Files
+
+on:
+  push:
+    branches:
+      - master  # master 브랜치에 푸시될 때 트리거
+  pull_request:
+    branches:
+      - master  # master 브랜치에 PR이 열릴 때 트리거
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_STEP_DEBUG: true # 비공개 정보 출력 활성화
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10.12'  # Python 3.10.12 버전 설정
+
+    - name: Add SSH key
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Deploy to Server
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        SERVER_USER: ${{ secrets.SERVER_USER }}
+        PROJECT_DIR: ${{ secrets.PROJECT_DIR }}
+        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}  # 새로 추가된 환경 변수
+      run: |
+        echo "Starting deployment..."
+        echo "SERVER_HOST: $SERVER_HOST"
+        echo "SERVER_USER: $SERVER_USER"
+        echo "PROJECT_DIR: $PROJECT_DIR"
+        echo "PROJECT_NAME: $PROJECT_NAME"
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << 'EOF'
+          cd $PROJECT_DIR  # 실제 배포할 프로젝트 경로
+          echo "Current directory: $(pwd)"
+          cd ${{ secrets.PROJECT_DIR }}
+          echo "Current directory: $(pwd)"
+
+          # Git 업데이트
+          git fetch --all && git reset --hard origin/master
+          git pull origin master
+          
+          # .env 갱신
+          cp .env /daily-52w-hl-stock/.
+          cp .env /daily-market-value/.
+          
+          # Docker-compose로 배포
+          echo "Deploying with Docker Compose for ${{ secrets.PROJECT_NAME }} ..."
+          docker-compose up --build -d
+
+        EOF
